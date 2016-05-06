@@ -1,3 +1,4 @@
+import json
 import logging
 from threading import Thread
 import imp
@@ -113,9 +114,11 @@ class Scheduler(Thread):
     def init_workers(self, job_id):
         try:
             log.info('Starting workers...')
+            worker_to_uri = {}
             active_workers = []
             workers_rpc_uris = []
-            for worker in filter(lambda w: w.enabled, self.master.workers):
+            workers = list(filter(lambda w: w.enabled, self.master.workers))
+            for worker in workers:
                 response = requests.post(
                         'http://{}:{}/api/internal/job'.format(worker.ip, worker.port),
                         files={'solution': open(get_solution_path(self.job_home, job_id), 'rb')},
@@ -125,12 +128,22 @@ class Scheduler(Thread):
                     uri = response.json()['uri']
                     workers_rpc_uris.append(uri)
                     active_workers.append(worker)
+                    worker_to_uri[worker] = uri
                 else:
                     log.warning('Unable to run RPC on %s:%d.', worker.ip, worker.port)
             log.debug('Obtained RPC urls: %s', workers_rpc_uris)
             rpc_workers = []
             for uri in workers_rpc_uris:
                 rpc_workers.append(Pyro4.async(Pyro4.Proxy(uri)))
+            for worker in workers:
+                other_uris = list(filter(lambda uri: uri != worker_to_uri[worker], workers_rpc_uris))
+                response = requests.post(
+                        'http://{}:{}/api/internal/rpc/{}/channels'.format(worker.ip, worker.port, job_id),
+                        json={'uris': other_uris}
+                )
+                if response.status_code != 200:
+                    log.warning('Unable to init worker on %s:%d with other workers.')
+            log.info('Workers are inited with others.')
             log.info('Started %d workers.', len(rpc_workers))
             return rpc_workers, active_workers
         except Exception as e:

@@ -79,6 +79,10 @@ class WorkerNode(Node):
         log.info("Started RPC for %d job on %s.", job_id, uri)
         return uri
 
+    def init_channels(self, job_id, uris):
+        workers = map(lambda uri: Pyro4.async(Pyro4.Proxy(uri)), uris)
+        self.rpc_thread.init_channels(job_id, workers)
+
     def stop_rpc(self):
         self.rpc_thread.stop()
         log.info("Stopped RPC for %d job.", self.rpc_thread.job_id)
@@ -199,11 +203,15 @@ class RPCThread(Thread):
         self.setDaemon(True)
         self.job_id = job_id
         self.job_home = job_home
+        self.solver = None
         try:
             self.daemon = Pyro4.Daemon(host=ip)
             RPCThread.log.info('Pyro4 daemon created successfully.')
         except Exception as e:
             RPCThread.log.error('Unable to create pyro4 daemon.')
+
+    def init_channels(self, job_id, workers):
+        self.solver.workers = workers
 
     def register_algorithm_module(self):
         if not self.daemon:
@@ -211,8 +219,8 @@ class RPCThread(Thread):
         try:
             algorithm_module = imp.load_source('solver_module_%d' % self.job_id,
                                                get_solution_path(self.job_home, self.job_id))
-            solver = algorithm_module.Solver()
-            uri = self.daemon.register(solver)
+            self.solver = algorithm_module.Solver()
+            uri = self.daemon.register(self.solver)
             RPCThread.log.info("Algorithm module registered on %s.", uri)
             return uri
         except Exception as e:

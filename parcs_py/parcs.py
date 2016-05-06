@@ -32,7 +32,7 @@ class Config:
 
         master = configuration.getboolean(Config.NODE_SECTION, 'master')
         ip = configuration.get(Config.NODE_SECTION, 'ip') if configuration.has_option(Config.NODE_SECTION,
-                                                                                             'ip') else None
+                                                                                      'ip') else None
         port = configuration.getint(Config.NODE_SECTION, 'port') if configuration.has_option(Config.NODE_SECTION,
                                                                                              'port') else None
 
@@ -235,6 +235,14 @@ def add_solution():
     job_id = int(request.form.get('job_id'))
     store_solution(app.node.conf.job_home, solution_file, job_id)
     return start_job_rpc_server(job_id)
+
+
+@app.route('/api/internal/rpc/<int:job_id>/channels', methods=['POST'])
+def init_channels(job_id):
+    json = request.get_json()
+    uris = json['uris']
+    app.node.init_channels(job_id, uris)
+    return ok()
 
 
 @app.route('/api/internal/rpc/<int:job_id>', methods=['DELETE'])
