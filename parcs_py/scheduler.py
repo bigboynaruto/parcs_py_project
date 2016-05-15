@@ -1,4 +1,3 @@
-import json
 import logging
 from threading import Thread
 import imp
@@ -8,6 +7,17 @@ import time
 import Pyro4
 from parcs_py.file_utils import get_solution_path, get_output_path, get_input_path
 import requests
+
+
+class WorkerWithDelayedInitialisation:
+    def __init__(self, uri):
+        self.uri = uri
+        self.delegate = None
+
+    def __getattr__(self, attrib):
+        if self.delegate is None:
+            self.delegate = Pyro4.async(Pyro4.Proxy(self.uri))
+        return getattr(self.delegate, attrib)
 
 
 class SolutionThread(Thread):
@@ -134,7 +144,7 @@ class Scheduler(Thread):
             log.debug('Obtained RPC urls: %s', workers_rpc_uris)
             rpc_workers = []
             for uri in workers_rpc_uris:
-                rpc_workers.append(Pyro4.async(Pyro4.Proxy(uri)))
+                rpc_workers.append(WorkerWithDelayedInitialisation(uri))
             for worker in workers:
                 other_uris = list(filter(lambda uri: uri != worker_to_uri[worker], workers_rpc_uris))
                 response = requests.post(

@@ -3,13 +3,13 @@ from threading import Thread
 
 import time
 
-from parcs_py.network_utils import find_free_port
+from scheduler import WorkerWithDelayedInitialisation
 import Pyro4
 import json
 from abc import abstractmethod
 from node_info import get_node_info_for_current_machine
 from node_link import NodeLink
-from file_utils import get_solution_path, setup_working_directory
+from file_utils import get_solution_path
 import requests
 import logging
 
@@ -80,7 +80,7 @@ class WorkerNode(Node):
         return uri
 
     def init_channels(self, job_id, uris):
-        workers = map(lambda uri: Pyro4.async(Pyro4.Proxy(uri)), uris)
+        workers = map(lambda uri: WorkerWithDelayedInitialisation(uri), uris)
         self.rpc_thread.init_channels(job_id, workers)
 
     def stop_rpc(self):
