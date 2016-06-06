@@ -19,7 +19,7 @@ class Solver:
 
     def recursion(self, depth, max_depth):
         if depth < max_depth:
-            return 1 + self.workers[depth - 1].recursion(depth + 1, max_depth).value
+            return 1 + self.workers[depth].recursion(depth + 1, max_depth).value
         else:
             return 1
 

@@ -241,7 +241,8 @@ def add_solution():
 def init_channels(job_id):
     json = request.get_json()
     uris = json['uris']
-    app.node.init_channels(job_id, uris)
+    self_index = json['self_index']
+    app.node.init_channels(job_id, uris, self_index)
     return ok()
 
 

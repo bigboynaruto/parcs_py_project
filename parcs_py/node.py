@@ -79,8 +79,10 @@ class WorkerNode(Node):
         log.info("Started RPC for %d job on %s.", job_id, uri)
         return uri
 
-    def init_channels(self, job_id, uris):
-        workers = map(lambda uri: WorkerWithDelayedInitialisation(uri), uris)
+    def init_channels(self, job_id, uris, self_index):
+        workers = []
+        for index, uri in enumerate(uris):
+            workers.append(WorkerWithDelayedInitialisation(uri, index == self_index))
         self.rpc_thread.init_channels(job_id, workers)
 
     def stop_rpc(self):

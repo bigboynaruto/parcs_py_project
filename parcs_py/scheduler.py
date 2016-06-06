@@ -10,14 +10,18 @@ import requests
 
 
 class WorkerWithDelayedInitialisation:
-    def __init__(self, uri):
+    def __init__(self, uri, is_self=False):
         self.uri = uri
         self.delegate = None
+        self.is_self = is_self
 
     def __getattr__(self, attrib):
         if self.delegate is None:
             self.delegate = Pyro4.async(Pyro4.Proxy(self.uri))
-        return getattr(self.delegate, attrib)
+        if attrib == 'is_self':
+            return lambda: self.is_self
+        else:
+            return getattr(self.delegate, attrib)
 
 
 class SolutionThread(Thread):
@@ -116,6 +120,7 @@ class Scheduler(Thread):
                         self.current_job.end_job()
             except Exception as e:
                 self.current_job.end_job(True, str(e))
+                log.error("Exception while running job %d: %s", job_id, str(e))
             finally:
                 self.destroy_workers(selected_workers, job_id)
                 self.current_job = None
@@ -145,11 +150,10 @@ class Scheduler(Thread):
             rpc_workers = []
             for uri in workers_rpc_uris:
                 rpc_workers.append(WorkerWithDelayedInitialisation(uri))
-            for worker in workers:
-                other_uris = list(filter(lambda uri: uri != worker_to_uri[worker], workers_rpc_uris))
+            for index, worker in enumerate(workers):
                 response = requests.post(
                         'http://{}:{}/api/internal/rpc/{}/channels'.format(worker.ip, worker.port, job_id),
-                        json={'uris': other_uris}
+                        json={'uris': workers_rpc_uris, 'self_index': index}
                 )
                 if response.status_code != 200:
                     log.warning('Unable to init worker on %s:%d with other workers.')
