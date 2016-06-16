@@ -105,7 +105,31 @@ class Solver:
 
         f.close()
 
-# s = Solver([Solver(), Solver()],
-#            '/path/to/input/file',
-#            '/path/to/output/file')
-# s.solve()
+
+class LocalProxy:
+    def __init__(self, worker, is_self=False):
+        self.worker = worker
+
+    def __getattr__(self, attrib):
+        if attrib == 'is_self':
+            return lambda self, *args, **kwargs: self.is_self
+        else:
+            return getattr(self.worker, attrib)
+
+
+def create_local_cluster(size, input, output):
+    workers = []
+    for i in xrange(size):
+        workers.append(Solver())
+
+    for i in xrange(size):
+        workers_tmp = []
+        for j in xrange(size):
+            workers_tmp.append(LocalProxy(workers[j], i == j))
+        workers[i].workers = workers_tmp
+
+    return Solver(workers, input, output)
+
+
+# solver = create_local_cluster(5, 'in.txt', 'out.txt')
+# solver.solve()
